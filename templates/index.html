@@ -3,213 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BenScan AI Object Scanner</title>
+    <title>BenScan AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { overscroll-behavior-y: contain; }
-        .feed-layer { object-fit: cover; width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        body { background: #000; margin: 0; overflow: hidden; height: 100vh; position: fixed; width: 100%; font-family: sans-serif; }
+        #video { object-fit: cover; width: 100vw; height: 100vh; position: absolute; }
+        #overlay { position: absolute; top: 0; left: 0; z-index: 10; width: 100vw; height: 100vh; pointer-events: none; }
+        .ui { position: absolute; z-index: 20; inset: 0; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
+        button { pointer-events: auto; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 h-screen flex flex-col overflow-hidden font-sans">
+<body>
 
-    <header class="bg-white p-4 shadow-sm z-10 flex justify-between items-center border-b border-blue-100">
-        <h1 class="text-xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">BenScan</h1>
-        <div id="statusIndicator" class="h-3 w-3 bg-slate-300 rounded-full shadow-inner"></div>
-    </header>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="overlay"></canvas>
 
-    <main class="flex-1 relative bg-gradient-to-br from-slate-100 to-slate-200 flex justify-center items-center overflow-hidden shadow-inner">
-        <video id="videoElement" class="feed-layer hidden" autoplay playsinline></video>
-        <canvas id="overlayCanvas" class="feed-layer z-10"></canvas>
-        
-        <div id="placeholder" class="text-slate-400 flex flex-col items-center">
-            <svg class="w-16 h-16 mb-2 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-            <p class="font-medium text-slate-500">Camera is off</p>
-        </div>
-    </main>
+    <div class="ui">
+        <header class="p-6 bg-gradient-to-b from-black/70 to-transparent">
+            <h1 class="text-white text-2xl font-bold italic">BEN<span class="text-blue-500">SCAN</span></h1>
+            <div id="ai-status" class="text-blue-400 text-xs font-mono mt-1 uppercase tracking-tighter">Ready to scan</div>
+        </header>
 
-    <footer class="bg-white px-6 pt-6 pb-12 rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.08)] z-10 border-t border-blue-50">
-        <div class="flex justify-center gap-4">
-            <button id="startBtn" class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg active:scale-95">
-                Turn On Camera
-            </button>
-            <button id="stopBtn" class="flex-1 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg active:scale-95 hidden">
-                Turn Off Camera
-            </button>
-            <button id="switchBtn" class="bg-blue-50 hover:bg-blue-100 text-indigo-600 font-semibold py-4 px-6 rounded-2xl transition-all shadow-sm border border-indigo-100 hidden flex items-center justify-center active:scale-95">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-            </button>
-        </div>
-    </footer>
+        <footer class="p-8 bg-gradient-to-t from-black/80 to-transparent">
+            <button id="startBtn" class="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl shadow-2xl active:scale-95 transition-all">ENABLE SCANNER</button>
+            <div id="activeControls" class="hidden flex gap-3">
+                <button id="switchBtn" class="flex-1 bg-white/10 border border-white/20 text-white py-4 rounded-xl backdrop-blur-md">SWITCH CAMERA</button>
+                <button id="stopBtn" class="flex-1 bg-red-600/20 border border-red-600/50 text-red-500 py-4 rounded-xl backdrop-blur-md">STOP</button>
+            </div>
+        </footer>
+    </div>
 
-    <canvas id="captureCanvas" class="hidden"></canvas>
+    <canvas id="hiddenCanvas" style="display:none;"></canvas>
 
     <script>
-        const video = document.getElementById('videoElement');
-        const overlay = document.getElementById('overlayCanvas');
-        const captureCanvas = document.getElementById('captureCanvas');
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        const aiStatus = document.getElementById('ai-status');
         const startBtn = document.getElementById('startBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const switchBtn = document.getElementById('switchBtn');
-        const placeholder = document.getElementById('placeholder');
-        const statusIndicator = document.getElementById('statusIndicator');
-        const ctxOverlay = overlay.getContext('2d');
-        const ctxCapture = captureCanvas.getContext('2d');
-
+        const activeControls = document.getElementById('activeControls');
+        
         let stream = null;
-        let isDetecting = false;
-        let currentFacingMode = "environment";
-        let scaleFactor = 1;
+        let isRunning = false;
+        let facingMode = "environment";
 
-        async function startCamera() {
+        async function start() {
             try {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
+                aiStatus.innerText = "ACCESSING CAMERA...";
+                
+                if(stream) {
+                    stream.getTracks().forEach(t => t.stop());
                 }
 
-                const constraints = {
-                    video: { 
-                        facingMode: currentFacingMode,
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        advanced: [{ focusMode: "continuous" }]
-                    }, 
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: facingMode, width: {ideal: 640} }, 
                     audio: false 
-                };
-
-                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                });
+                
                 video.srcObject = stream;
                 
-                video.classList.remove('hidden');
-                placeholder.classList.add('hidden');
                 startBtn.classList.add('hidden');
-                stopBtn.classList.remove('hidden');
-                switchBtn.classList.remove('hidden');
-                
-                statusIndicator.classList.replace('bg-slate-300', 'bg-emerald-500');
-                statusIndicator.classList.add('shadow-[0_0_8px_rgba(16,185,129,0.8)]');
+                activeControls.classList.remove('hidden');
+                aiStatus.innerText = "AI ENGINE: ACTIVE";
 
                 video.onloadedmetadata = () => {
                     overlay.width = video.videoWidth;
                     overlay.height = video.videoHeight;
-                    
-                    scaleFactor = Math.min(1.0, 640 / video.videoWidth);
-                    captureCanvas.width = video.videoWidth * scaleFactor;
-                    captureCanvas.height = video.videoHeight * scaleFactor;
-                    
-                    if (!isDetecting) processFrame();
+                    if (!isRunning) analyze();
                 };
-            } catch (err) {
-                console.error(err);
-                alert("Could not access the camera.");
+            } catch (e) { 
+                aiStatus.innerText = "ERROR: " + e.message;
+                console.error(e);
+                alert("Camera Error: Please ensure you are using http://localhost:5000 or https://");
             }
         }
 
-        function stopCamera() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null; 
-                
-                video.classList.add('hidden');
-                placeholder.classList.remove('hidden');
-                startBtn.classList.remove('hidden');
-                stopBtn.classList.add('hidden');
-                switchBtn.classList.add('hidden');
-                
-                statusIndicator.classList.replace('bg-emerald-500', 'bg-slate-300');
-                statusIndicator.classList.remove('shadow-[0_0_8px_rgba(16,185,129,0.8)]');
-                
-                ctxOverlay.clearRect(0, 0, overlay.width, overlay.height);
-            }
-        }
+        async function analyze() {
+            if (!stream) { isRunning = false; return; }
+            isRunning = true;
 
-        function switchCamera() {
-            currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
-            startCamera(); 
-        }
-
-        async function processFrame() {
-            if (!stream) {
-                isDetecting = false;
-                return;
-            }
+            const hidden = document.getElementById('hiddenCanvas');
+            const ctxH = hidden.getContext('2d');
             
-            isDetecting = true;
-            ctxCapture.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
-            const imageData = captureCanvas.toDataURL('image/jpeg', 0.5);
-
+            // Shrink image to 320px for the server to keep it fast
+            const scale = 320 / video.videoWidth;
+            hidden.width = 320;
+            hidden.height = video.videoHeight * scale;
+            ctxH.drawImage(video, 0, 0, hidden.width, hidden.height);
+            
             try {
-                const response = await fetch('/detect', {
+                const res = await fetch('/detect', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image: imageData })
+                    body: JSON.stringify({ image: hidden.toDataURL('image/jpeg', 0.5) })
                 });
+                const data = await res.json();
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (stream) drawDetections(data.detections);
-                }
-            } catch (error) {
-                console.error(error);
-            } finally {
-                if (stream) {
-                    setTimeout(processFrame, 100); 
+                if (data.detections && data.detections.length > 0) {
+                    aiStatus.innerText = `DETECTED: ${data.detections[0].class.toUpperCase()}`;
+                    draw(data.detections, scale);
                 } else {
-                    isDetecting = false;
+                    aiStatus.innerText = "SCANNING...";
+                    const ctx = overlay.getContext('2d');
+                    ctx.clearRect(0, 0, overlay.width, overlay.height);
                 }
+            } catch (e) { 
+                aiStatus.innerText = "SERVER CONNECTING..."; 
             }
+
+            // Set interval to 700ms to prevent server overload
+            setTimeout(analyze, 700);
         }
 
-        function drawDetections(detections) {
-            ctxOverlay.clearRect(0, 0, overlay.width, overlay.height);
-            if (!stream || !detections || detections.length === 0) return;
+        function draw(dets, scale) {
+            const ctx = overlay.getContext('2d');
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-            detections.forEach(det => {
-                const x = det.bbox[0] / scaleFactor;
-                const y = det.bbox[1] / scaleFactor;
-                const w = det.bbox[2] / scaleFactor;
-                const h = det.bbox[3] / scaleFactor;
+            dets.forEach(d => {
+                const x = d.bbox[0] / scale;
+                const y = d.bbox[1] / scale;
+                const w = d.bbox[2] / scale;
+                const h = d.bbox[3] / scale;
                 
-                const text = `${det.class.toUpperCase()} ${Math.round(det.confidence * 100)}%`;
+                // Draw thin, modern bounding box
+                ctx.strokeStyle = '#3b82f6'; 
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, w, h);
                 
-                ctxOverlay.strokeStyle = '#4f46e5'; 
-                ctxOverlay.lineWidth = 4;
-                ctxOverlay.strokeRect(x, y, w, h);
-
-                const fontSize = 22;
-                ctxOverlay.font = `bold ${fontSize}px Arial`;
-                const textWidth = ctxOverlay.measureText(text).width;
-                const labelPadding = 16;
-                const labelHeight = fontSize + 12;
+                // Draw small responsive label
+                const label = `${d.class.toUpperCase()} ${Math.round(d.confidence * 100)}%`;
+                ctx.font = '600 14px sans-serif';
+                const textWidth = ctx.measureText(label).width;
                 
-                let centerX = x + w / 2;
-                let rectX = centerX - (textWidth + labelPadding) / 2;
-                let rectY = y + h - labelHeight - 4; 
+                ctx.fillStyle = '#3b82f6';
+                ctx.fillRect(x, (y - 20 < 0 ? y : y - 20), textWidth + 10, 20);
                 
-                if (rectX < 4) rectX = 4;
-                if (rectX + textWidth + labelPadding > overlay.width - 4) {
-                    rectX = overlay.width - textWidth - labelPadding - 4;
-                }
-                if (rectY + labelHeight > overlay.height) {
-                    rectY = overlay.height - labelHeight - 4;
-                } else if (rectY < 4) {
-                    rectY = 4;
-                }
-
-                ctxOverlay.fillStyle = '#4f46e5';
-                ctxOverlay.beginPath();
-                ctxOverlay.roundRect(rectX, rectY, textWidth + labelPadding, labelHeight, 6);
-                ctxOverlay.fill();
-
-                ctxOverlay.fillStyle = '#ffffff';
-                ctxOverlay.textAlign = 'center';
-                ctxOverlay.textBaseline = 'middle';
-                ctxOverlay.fillText(text, rectX + (textWidth + labelPadding) / 2, rectY + labelHeight / 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(label, x + 5, (y - 20 < 0 ? y + 14 : y - 6));
             });
         }
 
-        startBtn.addEventListener('click', startCamera);
-        stopBtn.addEventListener('click', stopCamera);
-        switchBtn.addEventListener('click', switchCamera);
+        // --- BUTTON EVENT LISTENERS ---
+        startBtn.onclick = start;
+        
+        document.getElementById('stopBtn').onclick = () => {
+            if(stream) stream.getTracks().forEach(t => t.stop());
+            location.reload();
+        };
+
+        document.getElementById('switchBtn').onclick = () => {
+            facingMode = facingMode === "environment" ? "user" : "environment";
+            start();
+        };
     </script>
 </body>
 </html>
