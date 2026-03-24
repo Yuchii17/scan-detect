@@ -9,7 +9,7 @@ import gc
 
 app = Flask(__name__)
 
-# Load the smallest model (YOLOv8 Nano)
+# Load the smallest model
 model = YOLO('yolov8n.pt')
 
 @app.route('/')
@@ -23,7 +23,7 @@ def detect():
         if not data or 'image' not in data:
             return jsonify({'detections': []})
 
-        # Decode the base64 image from the browser
+        # Decode image
         image_str = data['image'].split(',')[1]
         decoded = base64.b64decode(image_str)
         nparr = np.frombuffer(decoded, np.uint8)
@@ -32,26 +32,35 @@ def detect():
         if img is None:
             return jsonify({'detections': []})
 
-        # Inference: imgsz=320 is fast and light on RAM
-        results = model.predict(img, imgsz=320, conf=0.4, verbose=False)
+        # Run inference
+        # imgsz=640 is standard, but we use a compromise for speed vs accuracy
+        results = model.predict(img, imgsz=480, conf=0.25, verbose=False)
         
         predictions = []
         for r in results:
             for box in r.boxes:
+                # Get coordinates
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
+                conf = float(box.conf[0])
+                cls = int(box.cls[0])
+                name = model.names[cls]
+                
+                # Normalize names for better UI display
+                display_name = name.replace('_', ' ')
+                
                 predictions.append({
-                    "class": model.names[int(box.cls[0])],
-                    "confidence": float(box.conf[0]),
-                    "bbox": [x1, y1, x2 - x1, y2 - y1]
+                    "class": display_name,
+                    "confidence": conf,
+                    "bbox": [x1, y1, x2 - x1, y2 - y1] # [x, y, w, h]
                 })
 
-        gc.collect() # Clean up memory
+        gc.collect() 
         return jsonify({'detections': predictions})
+
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Server Error: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Use port 5000 for local testing
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port)

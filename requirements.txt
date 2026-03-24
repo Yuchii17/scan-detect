@@ -3,6 +3,3 @@ opencv-python-headless==4.13.0.92
 numpy==2.0.0
 ultralytics==8.1.0
 gunicorn==21.2.0
---index-url https://download.pytorch.org/whl/cpu
-torch
-torchvision
