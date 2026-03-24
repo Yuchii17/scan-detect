@@ -9,8 +9,20 @@ import gc
 
 app = Flask(__name__)
 
-# Load the smallest model
-model = YOLO('yolov8n.pt')
+# Use YOLOv8-World for open-vocabulary detection (supports custom classes like ballpen, pencil, etc.)
+try:
+    model = YOLO('yolov8n-world.pt')
+    # Expanded list of common everyday objects
+    model.set_classes([
+        "person", "ballpen", "pencil", "paper", "notebook", "book", "chair", "table",
+        "laptop", "mouse", "keyboard", "cell phone", "remote", "camera", "headphone",
+        "cup", "bottle", "plate", "fork", "knife", "spoon", "bowl", "backpack", 
+        "handbag", "umbrella", "wallet", "glasses", "watch", "keys", "scissors",
+        "ruler", "eraser", "lamp", "clock", "television", "bed", "sofa", "plant"
+    ])
+except Exception as e:
+    print(f"Failed to load YOLOv8-World, falling back to standard YOLOv8n: {e}")
+    model = YOLO('yolov8n.pt')
 
 @app.route('/')
 def index():
