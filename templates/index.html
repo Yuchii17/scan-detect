@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Object Scanner</title>
+    <title>BenScan AI Object Scanner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { overscroll-behavior-y: contain; }
@@ -13,29 +13,29 @@
 <body class="bg-slate-50 text-slate-900 h-screen flex flex-col overflow-hidden font-sans">
 
     <header class="bg-white p-4 shadow-sm z-10 flex justify-between items-center border-b border-blue-100">
-        <h1 class="text-xl font-bold tracking-wide text-blue-900">Vision<span class="text-blue-500">Scan</span></h1>
+        <h1 class="text-xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-500">BenScan</h1>
         <div id="statusIndicator" class="h-3 w-3 bg-slate-300 rounded-full shadow-inner"></div>
     </header>
 
-    <main class="flex-1 relative bg-slate-200 flex justify-center items-center overflow-hidden shadow-inner">
+    <main class="flex-1 relative bg-gradient-to-br from-slate-100 to-slate-200 flex justify-center items-center overflow-hidden shadow-inner">
         <video id="videoElement" class="feed-layer hidden" autoplay playsinline></video>
         <canvas id="overlayCanvas" class="feed-layer z-10"></canvas>
         
         <div id="placeholder" class="text-slate-400 flex flex-col items-center">
-            <svg class="w-16 h-16 mb-2 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <svg class="w-16 h-16 mb-2 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
             <p class="font-medium text-slate-500">Camera is off</p>
         </div>
     </main>
 
-    <footer class="bg-white p-6 pb-8 rounded-t-3xl shadow-[0_-4px_25px_rgba(0,0,0,0.05)] z-10 border-t border-blue-50">
+    <footer class="bg-white px-6 pt-6 pb-12 rounded-t-3xl shadow-[0_-10px_30px_rgba(0,0,0,0.08)] z-10 border-t border-blue-50">
         <div class="flex justify-center gap-4">
-            <button id="startBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-md active:scale-95">
+            <button id="startBtn" class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg active:scale-95">
                 Turn On Camera
             </button>
-            <button id="stopBtn" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-md active:scale-95 hidden">
+            <button id="stopBtn" class="flex-1 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg active:scale-95 hidden">
                 Turn Off Camera
             </button>
-            <button id="switchBtn" class="bg-blue-50 hover:bg-blue-100 text-blue-600 font-semibold py-4 px-6 rounded-2xl transition-all shadow-sm border border-blue-200 hidden flex items-center justify-center active:scale-95">
+            <button id="switchBtn" class="bg-blue-50 hover:bg-blue-100 text-indigo-600 font-semibold py-4 px-6 rounded-2xl transition-all shadow-sm border border-indigo-100 hidden flex items-center justify-center active:scale-95">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             </button>
         </div>
@@ -57,7 +57,8 @@
 
         let stream = null;
         let isDetecting = false;
-        let currentFacingMode = "user"; // Start with front camera for testing faces
+        let currentFacingMode = "environment";
+        let scaleFactor = 1;
 
         async function startCamera() {
             try {
@@ -84,28 +85,29 @@
                 stopBtn.classList.remove('hidden');
                 switchBtn.classList.remove('hidden');
                 
-                // Active indicator (Green)
                 statusIndicator.classList.replace('bg-slate-300', 'bg-emerald-500');
                 statusIndicator.classList.add('shadow-[0_0_8px_rgba(16,185,129,0.8)]');
 
                 video.onloadedmetadata = () => {
                     overlay.width = video.videoWidth;
                     overlay.height = video.videoHeight;
-                    captureCanvas.width = video.videoWidth;
-                    captureCanvas.height = video.videoHeight;
+                    
+                    scaleFactor = Math.min(1.0, 640 / video.videoWidth);
+                    captureCanvas.width = video.videoWidth * scaleFactor;
+                    captureCanvas.height = video.videoHeight * scaleFactor;
                     
                     if (!isDetecting) processFrame();
                 };
             } catch (err) {
-                console.error("Error accessing camera: ", err);
-                alert("Could not access the camera. Check browser permissions.");
+                console.error(err);
+                alert("Could not access the camera.");
             }
         }
 
         function stopCamera() {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
-                stream = null; // Important: set to null immediately
+                stream = null; 
                 
                 video.classList.add('hidden');
                 placeholder.classList.remove('hidden');
@@ -113,11 +115,9 @@
                 stopBtn.classList.add('hidden');
                 switchBtn.classList.add('hidden');
                 
-                // Inactive indicator
                 statusIndicator.classList.replace('bg-emerald-500', 'bg-slate-300');
                 statusIndicator.classList.remove('shadow-[0_0_8px_rgba(16,185,129,0.8)]');
                 
-                // Immediately clear the ghost box
                 ctxOverlay.clearRect(0, 0, overlay.width, overlay.height);
             }
         }
@@ -135,7 +135,7 @@
             
             isDetecting = true;
             ctxCapture.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
-            const imageData = captureCanvas.toDataURL('image/jpeg', 0.6);
+            const imageData = captureCanvas.toDataURL('image/jpeg', 0.5);
 
             try {
                 const response = await fetch('/detect', {
@@ -143,17 +143,16 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: imageData })
                 });
-                const data = await response.json();
                 
-                // Only draw if the camera is still on! (Fixes the ghost box issue)
-                if (stream) {
-                    drawDetections(data.detections);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (stream) drawDetections(data.detections);
                 }
             } catch (error) {
-                console.error("Detection error:", error);
+                console.error(error);
             } finally {
                 if (stream) {
-                    setTimeout(processFrame, 50); 
+                    setTimeout(processFrame, 100); 
                 } else {
                     isDetecting = false;
                 }
@@ -162,56 +161,48 @@
 
         function drawDetections(detections) {
             ctxOverlay.clearRect(0, 0, overlay.width, overlay.height);
-            
-            // Double check stream is active before drawing
             if (!stream || !detections || detections.length === 0) return;
 
             detections.forEach(det => {
-                const [x, y, w, h] = det.bbox;
+                const x = det.bbox[0] / scaleFactor;
+                const y = det.bbox[1] / scaleFactor;
+                const w = det.bbox[2] / scaleFactor;
+                const h = det.bbox[3] / scaleFactor;
+                
                 const text = `${det.class.toUpperCase()} ${Math.round(det.confidence * 100)}%`;
                 
-                // 1. Draw Bounding Box Border (Now matches the blue theme)
-                ctxOverlay.strokeStyle = '#3b82f6'; // Tailwind blue-500
+                ctxOverlay.strokeStyle = '#4f46e5'; 
                 ctxOverlay.lineWidth = 4;
                 ctxOverlay.strokeRect(x, y, w, h);
 
-                // 2. Setup Font (Reduced from 36px to 22px for better mobile fit)
                 const fontSize = 22;
                 ctxOverlay.font = `bold ${fontSize}px Arial`;
                 const textWidth = ctxOverlay.measureText(text).width;
                 const labelPadding = 16;
                 const labelHeight = fontSize + 12;
                 
-                // 3. Smart Positioning System
-                // We want to center it inside the bottom edge of the bounding box
                 let centerX = x + w / 2;
                 let rectX = centerX - (textWidth + labelPadding) / 2;
-                let rectY = y + h - labelHeight - 4; // Default: inside bottom edge
+                let rectY = y + h - labelHeight - 4; 
                 
-                // FIX: Keep the label from sliding off the left or right edges of the screen
                 if (rectX < 4) rectX = 4;
                 if (rectX + textWidth + labelPadding > overlay.width - 4) {
                     rectX = overlay.width - textWidth - labelPadding - 4;
                 }
-
-                // FIX: Keep the label from sliding off the top or bottom of the screen
                 if (rectY + labelHeight > overlay.height) {
                     rectY = overlay.height - labelHeight - 4;
                 } else if (rectY < 4) {
                     rectY = 4;
                 }
 
-                // 4. Draw Label Background
-                ctxOverlay.fillStyle = '#3b82f6';
+                ctxOverlay.fillStyle = '#4f46e5';
                 ctxOverlay.beginPath();
                 ctxOverlay.roundRect(rectX, rectY, textWidth + labelPadding, labelHeight, 6);
                 ctxOverlay.fill();
 
-                // 5. Draw Text
                 ctxOverlay.fillStyle = '#ffffff';
                 ctxOverlay.textAlign = 'center';
                 ctxOverlay.textBaseline = 'middle';
-                // The text is drawn exactly in the center of our background rectangle
                 ctxOverlay.fillText(text, rectX + (textWidth + labelPadding) / 2, rectY + labelHeight / 2);
             });
         }
